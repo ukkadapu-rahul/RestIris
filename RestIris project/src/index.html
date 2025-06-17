@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>20-20-20 Timer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="draggable">
+    <div class="window-controls">
+        <button id="minimize-btn" class="control-btn minimize" aria-label="Minimize">−</button>
+        <button id="close-btn" class="control-btn close" aria-label="Close">×</button>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h2>👁️ 20-20-20 Timer</h2>
+        </div>
+
+        <div class="timer-display">
+            <div id="timer-text" aria-live="polite">20:00</div>
+            <div id="timer-label">minutes remaining</div>
+        </div>
+
+        <div class="controls">
+            <button id="start-btn" class="btn primary" aria-label="Start timer">Start</button>
+            <button id="stop-btn" class="btn secondary" aria-label="Stop timer" disabled>Stop</button>
+        </div>
+
+        <div id="break-message" class="break-message hidden" aria-live="assertive">
+            <div class="break-content">
+                <h3>🌅 Break Time!</h3>
+                <p>Look at something 20 feet away</p>
+                <div id="break-timer">20</div>
+                <p>seconds remaining</p>
+            </div>
+        </div>
+
+        <div class="status">
+            <div id="status-text" aria-live="polite">Ready to start</div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
