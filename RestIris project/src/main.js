@@ -23,10 +23,13 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.webContents.openDevTools(); // TEMP: See any renderer errors
 
   mainWindow.on('minimize', (event) => {
+    console.log('✋ Prevented minimize, hiding to tray');
     event.preventDefault();
-    mainWindow.hide();
+    mainWindow.setSkipTaskbar(true);
+    setTimeout(() => mainWindow.hide(), 200);
   });
 
   mainWindow.on('close', (event) => {
@@ -39,54 +42,22 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
-
 }
 
-ipcMain.on('start-drag', () => {
-  mainWindow?.webContents.send('on-drag-start');
-});
-
 function createTray() {
-  try {
-    const trayIconPath = path.resolve(__dirname, '../assets/icon-tray.png');
-   // console.log("Tray icon path:", trayIconPath);
-    
-    if (!fs.existsSync(trayIconPath)) {
-      throw new Error('Tray icon file does not exist');
-    }
+  const trayIconPath = path.resolve(__dirname, '../assets/icon-tray.png');
+  const image = fs.existsSync(trayIconPath)
+    ? nativeImage.createFromPath(trayIconPath)
+    : nativeImage.createEmpty();
 
-    const image = nativeImage.createFromPath(trayIconPath);
-    if (image.isEmpty()) {
-      throw new Error('Tray icon image is empty');
-    }
+  tray = new Tray(image);
 
-    tray = new Tray(image);
-
-    if (process.platform === 'darwin') {
-      const pressedImage = nativeImage.createFromPath(trayIconPath);
-      tray.setPressedImage(pressedImage);
-    }
-
-  } catch (error) {
-    console.error('Tray icon error:', error.message);
-
-    const fallbackIcon = nativeImage.createFromBitmap(
-      Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABZSURBVDhPY2RgYPjPQApgYGBgYqAEMDEx/QdR/////w9XgA5Q5YH4P5ECgJiRFAF0cQYGBgZGYgSAgImUQCAqGoD4P1FhQKwAEH8kKgyIFQDiT0SFAYkCQIwAAGjzIox0VY1uAAAAAElFTkSuQmCC',
-        'base64'
-      ),
-      { width: 16, height: 16 }
-    );
-
-    tray = new Tray(fallbackIcon);
-  }
-
-  const contextMenu = Menu.buildFromTemplate([
+  tray.setToolTip('20-20-20 Eye Strain Timer');
+  tray.setContextMenu(Menu.buildFromTemplate([
     {
       label: 'Show App',
       click: () => {
         mainWindow?.show();
-        mainWindow?.restore();
         mainWindow?.focus();
       }
     },
@@ -98,33 +69,44 @@ function createTray() {
         app.quit();
       }
     }
-  ]);
-
-  tray.setToolTip('20-20-20 Eye Strain Timer');
-  tray.setContextMenu(contextMenu);
+  ]));
 
   tray.on('double-click', () => {
     mainWindow?.show();
-    mainWindow?.restore();
     mainWindow?.focus();
   });
 }
 
-// IPC handlers
-ipcMain.on('minimize-window', () => mainWindow?.minimize());
-ipcMain.on('close-window', () => mainWindow?.hide());
-ipcMain.on('restore-window', () => {
-  if (mainWindow) {
-    mainWindow.show();
-    mainWindow.restore();
-    mainWindow.focus();
+ipcMain.on('minimize-window', () => {
+  console.log('🔽 Minimize button clicked');
 
-    if (process.platform === 'win32') {
-      mainWindow.flashFrame(true);
-      setTimeout(() => mainWindow.flashFrame(false), 3000);
-    }
+  if (mainWindow) {
+    mainWindow.setSkipTaskbar(true);   // hides from taskbar
+    mainWindow.hide();                 // hide to tray
   }
 });
+
+ipcMain.on('close-window', () => {
+  console.log('❌ Close button clicked');
+  mainWindow?.hide();
+});
+
+ipcMain.on('restore-window', () => {
+  console.log('🔁 restore-window IPC received');
+  if (mainWindow) {
+    mainWindow.setSkipTaskbar(false);
+
+    const bounds = mainWindow.getBounds();
+    mainWindow.setBounds({ x: bounds.x + 1, y: bounds.y + 1, width: bounds.width, height: bounds.height });
+    mainWindow.setBounds(bounds);
+
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.setAlwaysOnTop(true);
+    setTimeout(() => mainWindow.setAlwaysOnTop(false), 1000);
+  }
+});
+
 ipcMain.on('show-notification', (_, title, body) => {
   if (Notification.isSupported()) {
     const notification = new Notification({
@@ -138,14 +120,8 @@ ipcMain.on('show-notification', (_, title, body) => {
 
     notification.on('click', () => {
       mainWindow?.show();
-      mainWindow?.restore();
       mainWindow?.focus();
     });
-  } else {
-    console.warn('Notifications not supported');
-    mainWindow?.show();
-    mainWindow?.restore();
-    mainWindow?.focus();
   }
 });
 
@@ -155,11 +131,6 @@ app.whenReady().then(() => {
 
   if (process.platform === 'darwin') {
     app.dock.hide();
-    Notification.requestPermission?.().then((permission) => {
-      if (permission !== 'granted') {
-        console.warn('Notification permission not granted');
-      }
-    });
   }
 
   app.on('activate', () => {
@@ -168,20 +139,18 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  // Keep running in tray
+  // stay running in tray
 });
 
 app.on('before-quit', () => {
   isQuitting = true;
 });
 
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
+if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => {
     if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
       mainWindow.focus();
     }
