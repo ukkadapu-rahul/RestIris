@@ -11,6 +11,28 @@
   },
   "author": "Your Name",
   "license": "MIT",
+  "config": {
+    "forge": {
+      "packagerConfig": {
+        "icon": "./assets/icon",
+        "win32metadata": {
+          "CompanyName": "RestIris",
+          "ProductName": "20-20-20 Eye Strain Timer"
+        }
+      },
+      "makers": [
+        {
+          "name": "@electron-forge/maker-squirrel",
+          "config": {
+            "name": "rest_iris",
+            "authors": "RestIris Team",
+            "setupIcon": "./assets/icon.ico",
+            "noMsi": true
+          }
+        }
+      ]
+    }
+  },
   "devDependencies": {
     "@electron-forge/cli": "^6.4.1",
     "@electron-forge/maker-deb": "^6.4.1",
