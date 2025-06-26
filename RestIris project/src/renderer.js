@@ -1,11 +1,13 @@
 class EyeStrainTimer {
   constructor() {
-    this.workDuration = 10; // TEST: 10 seconds
-    this.breakDuration = 5; // TEST: 5 seconds
+    this.workDuration = 20 * 60; // 20 minutes
+    this.breakDuration = 20; // 20 seconds
     this.currentTime = this.workDuration;
     this.isRunning = false;
     this.isBreakTime = false;
     this.interval = null;
+    this.endless = true;
+    this.cycleCompleted = false;
 
     this.initializeElements();
     this.bindEvents();
@@ -22,6 +24,7 @@ class EyeStrainTimer {
     this.breakTimer = document.getElementById('break-timer');
     this.minimizeBtn = document.getElementById('minimize-btn');
     this.closeBtn = document.getElementById('close-btn');
+    this.endlessCheckbox = document.getElementById('endless-checkbox');
   }
 
   bindEvents() {
@@ -29,6 +32,12 @@ class EyeStrainTimer {
     this.stopBtn.addEventListener('click', () => this.stopTimer());
     this.minimizeBtn.addEventListener('click', () => window.electronAPI.minimizeWindow());
     this.closeBtn.addEventListener('click', () => window.electronAPI.closeWindow());
+    if (this.endlessCheckbox) {
+      this.endlessCheckbox.addEventListener('change', (e) => {
+        this.endless = e.target.checked;
+      });
+      this.endless = this.endlessCheckbox.checked;
+    }
   }
 
   startTimer() {
@@ -37,6 +46,7 @@ class EyeStrainTimer {
     this.startBtn.disabled = true;
     this.stopBtn.disabled = false;
     this.statusText.textContent = 'Timer running...';
+    this.cycleCompleted = false;
 
     this.interval = setInterval(() => {
       this.currentTime--;
@@ -44,7 +54,7 @@ class EyeStrainTimer {
 
       if (this.currentTime <= 0) {
         if (!this.isBreakTime) {
-          this.startBreak();
+          this.handleWorkEnd();
         } else {
           this.completeBreak();
         }
@@ -60,22 +70,28 @@ class EyeStrainTimer {
     this.stopBtn.disabled = true;
     this.resetTimer();
     this.statusText.textContent = 'Timer stopped';
+    this.cycleCompleted = false;
   }
 
-  startBreak() {
-    this.isBreakTime = true;
-    this.currentTime = this.breakDuration;
+  handleWorkEnd() {
     clearInterval(this.interval);
-
-    console.log('🕒 Timer done. Starting break.');
-
+    this.interval = null;
     window.electronAPI.showNotification(
       '20-20-20 Break Time!',
       'Look at something 20 feet away for 20 seconds'
     );
     window.electronAPI.restoreWindow();
+    this.statusText.textContent = 'Break starting soon...';
+    setTimeout(() => {
+      this.startBreak();
+    }, 3000); // Wait 3 seconds before starting break
+  }
 
+  startBreak() {
+    this.isBreakTime = true;
+    this.currentTime = this.breakDuration;
     this.breakMessage.classList.remove('hidden');
+    this.statusText.textContent = 'Break time!';
 
     this.interval = setInterval(() => {
       this.currentTime--;
@@ -92,9 +108,19 @@ class EyeStrainTimer {
     this.interval = null;
     this.isBreakTime = false;
     this.breakMessage.classList.add('hidden');
-    this.resetTimer();
-    this.startTimer();
-    this.statusText.textContent = 'Back to work! Timer running...';
+    window.electronAPI.showNotification("break's done!", "Your break is over. Time to get back to work!");
+    if (this.endless) {
+      this.resetTimer();
+      this.startTimer();
+      this.statusText.textContent = 'Back to work! Timer running...';
+      window.electronAPI.minimizeWindow();
+    } else {
+      this.resetTimer();
+      this.statusText.textContent = 'Cycle complete! Press Start to run again.';
+      this.startBtn.disabled = false;
+      this.stopBtn.disabled = true;
+      this.cycleCompleted = true;
+    }
   }
 
   resetTimer() {
