@@ -16,6 +16,7 @@ function createWindow() {
     icon: path.join(__dirname, '../assets/icon.png'),
     skipTaskbar: false,
     webPreferences: {
+      backgroundThrottling: false,
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
@@ -23,19 +24,19 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
-  mainWindow.webContents.openDevTools(); // TEMP: See any renderer errors
+ // mainWindow.webContents.openDevTools(); // TEMP: See any renderer errors
 
   mainWindow.on('minimize', (event) => {
-    console.log('✋ Prevented minimize, hiding to tray');
-    event.preventDefault();
-    mainWindow.setSkipTaskbar(true);
-    setTimeout(() => mainWindow.hide(), 200);
+    // Default minimize behavior: stays in taskbar
+    console.log('Minimize event: window minimized, stays in taskbar');
+    // No preventDefault, no hide, no setSkipTaskbar
   });
 
   mainWindow.on('close', (event) => {
     if (!isQuitting) {
-      event.preventDefault();
-      mainWindow.hide();
+      // Default close behavior: quit app
+      console.log('Close event: quitting app');
+      // No preventDefault, no hide
     }
   });
 
@@ -79,31 +80,30 @@ function createTray() {
 
 ipcMain.on('minimize-window', () => {
   console.log('🔽 Minimize button clicked');
+  console.log('Main process: minimize-window IPC received');
 
   if (mainWindow) {
-    mainWindow.setSkipTaskbar(true);   // hides from taskbar
-    mainWindow.hide();                 // hide to tray
+    mainWindow.minimize(); // Just minimize, stays in taskbar
+    console.log('Main process: Window minimized (taskbar)');
   }
 });
 
 ipcMain.on('close-window', () => {
   console.log('❌ Close button clicked');
-  mainWindow?.hide();
+  if (mainWindow) {
+    mainWindow.close(); // Actually close the window (quit app)
+  }
 });
 
 ipcMain.on('restore-window', () => {
   console.log('🔁 restore-window IPC received');
+  console.log('Main process: restore-window IPC received');
+  
   if (mainWindow) {
     mainWindow.setSkipTaskbar(false);
-
-    const bounds = mainWindow.getBounds();
-    mainWindow.setBounds({ x: bounds.x + 1, y: bounds.y + 1, width: bounds.width, height: bounds.height });
-    mainWindow.setBounds(bounds);
-
     mainWindow.show();
     mainWindow.focus();
-    mainWindow.setAlwaysOnTop(true);
-    setTimeout(() => mainWindow.setAlwaysOnTop(false), 1000);
+    console.log('Main process: mainWindow.show() called');
   }
 });
 
